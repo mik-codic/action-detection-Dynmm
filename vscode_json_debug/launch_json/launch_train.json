@@ -1,0 +1,26 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "/raid/home/dvl/mpresutto/vol/DynMM/FusionDynMM/train_xd.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--dynamic",
+                "--global-gate",
+                
+                "--loss-ratio", "1e-4",
+                "--eval-every", "1",
+                "--temp", "1.0", 
+                "--end-temp", "0.001"
+                
+            ]
+        }
+    ]
+}
