@@ -10,6 +10,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 import torchvision.transforms as T
 
+
 PATH = "/raid/home/dvl/mpresutto/vol/DynMM/FusionDynMM/datasets/xdviolence/train/"
 def onehot(label):
     #a = label.split("-")
