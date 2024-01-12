@@ -9,8 +9,7 @@ from PIL import Image
 import numpy as np
 from torch.utils.data import DataLoader
 import torchvision.transforms as T
-
-
+import random
 PATH = "/raid/home/dvl/mpresutto/vol/DynMM/FusionDynMM/datasets/xdviolence/train/"
 def onehot(label):
     #a = label.split("-")
@@ -46,7 +45,6 @@ def get_max_size(path):
     for i in os.listdir(path):
         for j in os.listdir(os.path.join(path,i)):
 
-            #print("\npath:\n",j)
             img = Image.open(os.path.join(path,i,j,"frame0001.png"))
             #print(type(img))
             img_sz = img.size
@@ -66,7 +64,6 @@ def pad_to_max(img,max_size):
 class XDViolence(Dataset):
     def __init__(self, root_dir,n_sample, transform=None):
         self.root_dir = root_dir
-        #self.n_frames = n_frames
         self.transform = transform or ToTensor()
         self.video_folders = sorted(os.listdir(root_dir))
         self.frames = []
@@ -78,31 +75,25 @@ class XDViolence(Dataset):
 
     def __getitem__(self, idx):     
         video_folder = self.video_folders[idx]
-        smpl_files = sorted(os.listdir(os.path.join(self.root_dir)))
         frame_files = sorted(os.listdir(os.path.join(self.root_dir, video_folder)))
-        #print(smpl_files)
-        #n_frames = min(self.n_frames, len(frame_files))
-        sample = []
         
         max_size = get_max_size(PATH)
-        #print("\nMAX SIZE : ",max_size,"\n\n")
         labe = []
-        fram_ = []
-        labe_ = []
-        spec_ = []
-        #if self.n_sample < len(frame_files)
-        #for j in range(len(smpl_files)):
         frames = []
         labels = []
         spectr = []
         for i in range(self.n_sample):
-            if frame_files[i] != "full_spectrogram.png" and frame_files[i] != "output.mp3":
+            
+            if frame_files[idx] != "full_spectrogram.png" and frame_files[idx] != "output.mp3":
+                #using module to mix up the batch 
+                if i%3 == 0:
+                    video_folder = self.video_folders[idx-1]
+                    frame_path = os.path.join(self.root_dir, video_folder, frame_files[i])
+                else:
+                    video_folder = self.video_folders[idx]
+                    frame_path = os.path.join(self.root_dir, video_folder, frame_files[i])
 
-                frame_path = os.path.join(self.root_dir, video_folder, frame_files[i])
-                #print("\nframe path\n\n",frame_path)
-                base, ext = os.path.splitext(video_folder)
-                #print("extention name:",ext)
-                filename_frame = os.listdir(frame_path)
+                
                 bas,ext_ = os.path.splitext(frame_path)
                 bo ,label = bas.split("label_")
                 label,__ = label.split(".")
@@ -120,17 +111,14 @@ class XDViolence(Dataset):
                 frames.append(frame)
                 spectr.append(spect)
                 labels.append(torch.tensor(np.argmax(label_)))
-        
+            
             fram = torch.stack(frames)
             spec = torch.stack(spectr)            
             labe = torch.stack(labels)
-        # fram_.append(torch.tensor(fram))
-        # spec_.append(torch.tensor(spec))
-        # labe_.append(torch.tensor(labe))
-        # fram_ = torch.stack(fram_)
-        # spec_ = torch.stack(spec_)            
-        # labe_ = torch.stack(label_)
-            #print("labeeeee\n",labe)
+        
+        # c = list(zip(frames, spectr,labels))
+        # random.shuffle(c)
+        # frames,spectr,labels = zip(*c)
         return fram,spec,labe#,self.label
 def compute_weight_class(loader):
     
@@ -141,40 +129,15 @@ def compute_weight_class(loader):
 
     
 
-#     print("\n..weight computing..\n")
-#     print("total number of samples",len(data.label))
-#     print("number of labels from a random samples", data.label[1])
+
 def load_data(path):
-    data = XDViolence(path, n_sample = 5)
+    data = XDViolence(path, n_sample = 10)
     data_loader = DataLoader((data), batch_size=3, shuffle=True)
 
     return data_loader
-# train_data = XDViolence('/raid/home/dvl/mpresutto/vol/DynMM/FusionDynMM/datasets/xdviolence/train/', n_frames=10,n_sample=20)
-# #print("awalla\n", train_data[1])
-# video_dataloader = DataLoader((train_data), batch_size=1, shuffle=True)
-# print("len dataloader\n",len(video_dataloader))
-# i, (f) = next(enumerate(video_dataloader))
-# # print("lennnnn\n",len(f))
-# print("len of first element of batch\n",(f[1][0][0]))
 
 
-# val_data = XDViolence('/raid/home/dvl/mpresutto/vol/DynMM/FusionDynMM/datasets/xdviolence/test/', n_frames=2)
-
-# i, (frames,spect,label) = next(enumerate(video_dataloader))
-# spect_np = spect[0][0][0].numpy()
-# spect = Image.fromarray(spect_np)
-# print(type(spect))
-# print("\nframes len\n",len(frames))
-
-#visualize the output 
-
-#frames_ = f[1][10][0].numpy()
-#print("label:\n",(f[2][30][0].numpy()))
-# print(len(frames_))
-#frames_ = Image.fromarray(frames_)
-#frames_.save("vediamochee.png")
 # dataload = load_data("/raid/home/dvl/mpresutto/vol/DynMM/FusionDynMM/datasets/xdviolence/train/")
-# print(dataload.dataset)
 #print("\ndataloader size\n",len(dataload))
 
 #for i, (frame,spect,label) in (enumerate(dataload)):
