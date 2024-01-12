@@ -73,93 +73,95 @@ class XDViolence(Dataset):
         self.spect = []
         self.label = []
         self.n_sample = n_sample
+        self.frames_per_fold = []
+        cumulative_num_frames = 0
+        for i in self.video_folders:
+            num_frames = sorted(os.listdir(os.path.join(self.root_dir,i)))
+            cumulative_num_frames = cumulative_num_frames+len(num_frames)-2
+            self.frames_per_fold.append(cumulative_num_frames)
     def __len__(self):
-        return len(self.video_folders)
+        total_num_frames = 0
+        for i in self.video_folders:
+            num_frames = sorted(os.listdir(os.path.join(self.root_dir,i)))
+            total_num_frames = total_num_frames+(len(num_frames)-2)
+        #print(total_num_frames)
+        return total_num_frames
 
     def __getitem__(self, idx):     
-        video_folder = self.video_folders[idx]
-        frame_files = sorted(os.listdir(os.path.join(self.root_dir, video_folder)))
-        n_frames = min(self.n_frames, len(frame_files))
+        print("\nindex",idx)
+        print(self.frames_per_fold)
+        for i in range(0,len(self.frames_per_fold)):
+            if idx < self.frames_per_fold[i]:
+                video_folder = self.video_folders[i]
+                if i != 0:
+                    index_in_fold = idx-self.frames_per_fold[i-1]
+                    break
+                else: 
+                    index_in_fold = idx
+                    break
+        max_size = get_max_size(self.root_dir) 
+        print("index_in_fold",index_in_fold)
 
-        
-        sample = []
+        # video_folder = self.video_folders[idx]
+        frame_files = sorted(os.listdir(os.path.join(self.root_dir, video_folder)))
+        frame_files.remove("full_spectrogram.png")
+        frame_files.remove("output.mp3")
+        #print("frame files",frame_files)
+
+        image = Image.open(os.path.join(self.root_dir,video_folder,frame_files[index_in_fold],"frame0001.png"))
+
+        spect = Image.open(os.path.join(self.root_dir,video_folder,frame_files[index_in_fold],"c_spectrogram.png"))
+        spect = spect.convert('L')
+        spect = spect.resize(image.size)
+        spect = pad_to_max(spect,max_size)
+        image = pad_to_max(image,max_size)
+        bas,ext_ = os.path.splitext(video_folder)
+        bo ,label = bas.split("label_")
+        #print("\nlabels example\n",label)
+        label = onehot(label[0])
+
+        image = torch.tensor(np.array(image))
+        spect = torch.tensor(np.array(spect))
+        label = torch.tensor(np.array(label))
+        #label = torch.tensor([torch.argmax(lab) for lab in label])
+        return image,spect,label
        
-        frames = []
-        labels = []
-        spectr = []
-        for i in range(n_frames):
-            frame_path = os.path.join(self.root_dir, video_folder, frame_files[i])
-            base, ext = os.path.splitext(frame_path)
-            bas,ext_ = os.path.splitext(video_folder)
-            bo ,label = bas.split("label_")
-            print("\nlabels example\n",label)
-            label = onehot(label[0])
-            print("\nlabels\n",label)
-            #label = ord(label[0])
-            print("\n",self.root_dir+"/"+video_folder+"/spectrogram.png"+"\n")
-            spect = Image.open(self.root_dir+"/"+video_folder+"/spectrogram.png")
-            spect = spect.convert('L')
-            #spect = spect.convert('RGB')
-            if ext.lower() == '.png':
-                f = Image.open(frame_path)
-                print("size of image\n",f.size)
-                spect = spect.resize(f.size)
-            if spect == None:
-                print("\nerror: spectrogram not found\n")
-            spect = torch.tensor(np.array(spect))
-            if ext.lower() == '.wav' or ext.lower() == ".DS_Store":
-                continue
-            elif ext.lower() == '.png':
-                
-                frame = Image.open(frame_path)
-                print("wtf\n",frame.size)
-                frame = torch.tensor(np.array(frame))
-                label = torch.tensor(np.array(label))
-                frames.append(frame)
-                spectr.append(spect)
-                labels.append(label)
-                self.frames.append(frames)
-                self.label.append(labels)
-                self.spect.append(spectr)
-        return self.frames,self.spect,self.label
 def compute_weight_class(loader):
     
     print("\necco train data_label\n",loader.label)
     for i in loader.label:
         print("\nlabels\n",i)
-
-
     
-
-#     print("\n..weight computing..\n")
-#     print("total number of samples",len(data.label))
-#     print("number of labels from a random samples", data.label[1])
 def load_data(path):
-    data = XDViolence(path, n_frames=10,n_sample = 1)
-    data_loader = DataLoader((data) ,batch_size=2, shuffle=True)
+    data = XDViolence(path, n_frames=0,n_sample = 1)
+    data_loader = DataLoader((data) ,batch_size=10, shuffle=True)
     return data_loader
-#train_data = XDViolence('/raid/home/dvl/mpresutto/vol/DynMM/FusionDynMM/datasets/xdviolence/train/', n_frames=10,n_sample=1)
 
-# video_dataloader = DataLoader((train_data), batch_size=2, shuffle=True)
-# print(len(video_dataloader))
-# i, (f) = next(enumerate(video_dataloader))
-# print("lennnnn\n",len(f))
-# print("len of train data xd\n",len(train_data[0]))
-
-
-# val_data = XDViolence('/raid/home/dvl/mpresutto/vol/DynMM/FusionDynMM/datasets/xdviolence/test/', n_frames=2)
-
-# i, (frames,spect,label) = next(enumerate(video_dataloader))
-# spect_np = spect[0][0][0].numpy()
-# spect = Image.fromarray(spect_np)
-# print(type(spect))
-# print("\nframes len\n",len(frames))
-
-# frames_ = frames[1][0][0].numpy()
-# print(len(frames_))
-# frames_ = Image.fromarray(frames_)
-# #frames_.show()
-
-# spect.show()
+def pad_to_max(img,max_size):
+    im_sz=img.size
+    pad_x = max_size[0]-im_sz[0]
+    pad_y = max_size[1]-im_sz[1]
+    transform = T.Pad((0,0,pad_x, pad_y))
+    img = transform(img)
+    return img
 
 
+def get_max_size(path):
+    max_size = (0,0)
+    for i in os.listdir(path):
+        for j in os.listdir(os.path.join(path,i)):
+
+            img = Image.open(os.path.join(path,i,j,"frame0001.png"))
+            #print(type(img))
+            img_sz = img.size
+            #print(img_sz)
+            break
+        if(max_size < img_sz):
+            max_size = img_sz
+    return max_size
+
+val_data = load_data("/raid/home/dvl/mpresutto/vol/DynMM/FusionDynMM/datasets/xdviolence/train")
+print("len data",len(val_data))
+for i, (frames,spect,label) in enumerate(val_data):
+    label = [np.argmax(lab) for lab in label]
+    print(label)
